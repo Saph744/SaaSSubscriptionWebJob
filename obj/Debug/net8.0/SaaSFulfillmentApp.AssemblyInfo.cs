@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SaaSFulfillmentApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6efee99151fc46e122dd8aa030868783fa619399")]
 [assembly: System.Reflection.AssemblyProductAttribute("SaaSFulfillmentApp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SaaSFulfillmentApp")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using SaaSFulfillmentApp.Data;
 using SaaSFulfillmentApp.Models;
 using SaaSFulfillmentApp.Services;
@@ -30,61 +31,91 @@ namespace SaaSFulfillmentApp.Repository.Interface
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             var requestUri = $"https://marketplaceapi.microsoft.com/api/saas/subscriptions?api-version={ApiVersion}";
+            var subscriptions = new List<SaaSSubscription>();
+            string nextLink = requestUri;
 
-            HttpResponseMessage response = null;
-            try
+            do
             {
-                response = await _httpClient.GetAsync(requestUri);
-
-                if (response.IsSuccessStatusCode)
+                HttpResponseMessage response = null;
+                try
                 {
-                    var content = await response.Content.ReadAsStringAsync();
-                    Console.WriteLine($"Response Content: {content}");
-                    var subscriptionWrapper = JsonConvert.DeserializeObject<SaaSSubscriptionWrapper>(content);
-                    var subscriptions = subscriptionWrapper?.Subscriptions;
-                    if (subscriptions == null)
-                    {
-                        Console.WriteLine("Deserialization returned null.");
-                    }
-                    else if (subscriptions.Count == 0)
-                    {
-                        Console.WriteLine("Deserialization returned an empty list.");
-                    }
+                    response = await _httpClient.GetAsync(requestUri);
 
-                    return subscriptions;
-                }
-                else
-                {
-                    Console.WriteLine($"Failed with status code: {(int)response.StatusCode} - {response.ReasonPhrase}");
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    Console.WriteLine($"Error Content: {errorContent}");
-
-                    if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                    if (response.IsSuccessStatusCode)
                     {
-                        token = await _tokenService.GetAccessTokenAsync();
-                        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                        var content = await response.Content.ReadAsStringAsync();
+                        Console.WriteLine($"Response Content: {content}");
+                        var subs = JsonConvert.DeserializeObject(content);
+                        nextLink = GetNextLink((JObject)subs);
 
-                        response = await _httpClient.GetAsync(requestUri);
-                        if (response.IsSuccessStatusCode)
+                        var subscriptionWrapper = JsonConvert.DeserializeObject<SaaSSubscriptionWrapper>(content);
+
+                        if (subscriptionWrapper != null)
                         {
-                            var content = await response.Content.ReadAsStringAsync();
-                            Console.WriteLine($"Response Content: {content}");
-                            return JsonConvert.DeserializeObject<List<SaaSSubscription>>(content);
+                            if (subscriptionWrapper.Subscriptions != null && subscriptionWrapper.Subscriptions.Any())
+                            {
+                                subscriptions.AddRange(subscriptionWrapper.Subscriptions);
+                            }
+
+                            //nextLink = subscriptionWrapper.NextLink;
+                            if (string.IsNullOrEmpty(nextLink))
+                            {
+                                Console.WriteLine("NextLink is null or empty, exiting the loop.");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"NextLink: {nextLink}");
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("Deserialization returned null.");
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Failed with status code: {(int)response.StatusCode} - {response.ReasonPhrase}");
+                        var errorContent = await response.Content.ReadAsStringAsync();
+                        Console.WriteLine($"Error Content: {errorContent}");
+
+                        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                        {
+                            token = await _tokenService.GetAccessTokenAsync();
+                            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                        }
+                        else
+                        {
+                            break;
                         }
                     }
                 }
-            }
-            catch (HttpRequestException e)
-            {
-                Console.WriteLine($"Request error: {e.Message}");
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine($"Unexpected error: {e.Message}");
-            }
+                catch (HttpRequestException e)
+                {
+                    Console.WriteLine($"Request error: {e.Message}");
+                    break;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"Unexpected error: {e.Message}");
+                    break;
+                }
+            } while (!string.IsNullOrEmpty(nextLink));
 
-            Console.WriteLine("The API call was unsuccessful.");
-            return null;
+            return subscriptions;
+        }
+        private static string GetNextLink(JObject pjobjResult)
+        {
+            JProperty jtLastToken = (JProperty)pjobjResult.Last;
+
+            if (jtLastToken.Name.Equals(@"@nextLink"))
+            {
+                return jtLastToken.Value.ToString();
+            } 
+            else
+            {
+                return "";
+            }
         }
     }
 }

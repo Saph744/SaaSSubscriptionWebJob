@@ -19,7 +19,7 @@ namespace SaaSFulfillmentApp.Services
             logger.LogInformation($"Processing queue message: {message}");
         }
 
-        public async Task SyncSubscriptions([TimerTrigger("0 0 2 * * *")] TimerInfo timer, ILogger logger)
+        public async Task SyncSubscriptions([TimerTrigger("0 11 11 * * *")] TimerInfo timer, ILogger logger)
         {
             logger.LogInformation($"SyncSubscriptions triggered at: {DateTime.Now}");
             await _subscriptionSyncService.SyncSubscriptionsAsync();
